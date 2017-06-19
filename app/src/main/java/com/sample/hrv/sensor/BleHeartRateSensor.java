@@ -84,6 +84,11 @@ public class BleHeartRateSensor extends BleSensor<float[]> {
 		return "heart rate=" + data[0] + "\ninterval=" + data[1];
 	}
 
+	public HRData getHRData(){
+		final float[] data = getData();
+		return new HRData(data[0],data[1]);
+	}
+
 	@Override
 	public float[] parse(BluetoothGattCharacteristic c) {
 

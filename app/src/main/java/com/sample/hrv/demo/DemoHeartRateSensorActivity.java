@@ -15,8 +15,6 @@ import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import android.opengl.GLSurfaceView.Renderer;
-
 import android.content.Context;
 import android.os.SystemClock;
 
@@ -24,6 +22,7 @@ import android.os.SystemClock;
 import com.sample.hrv.R;
 import com.sample.hrv.sensor.BleHeartRateSensor;
 import com.sample.hrv.sensor.BleSensor;
+import com.sample.hrv.sensor.HRData;
 
 /**
  * Created by olli on 3/28/14.
@@ -58,8 +57,8 @@ public class DemoHeartRateSensorActivity extends DemoSensorActivity {
 	public void onDataRecieved(BleSensor<?> sensor, String text) {
 		if (sensor instanceof BleHeartRateSensor) {
 			final BleHeartRateSensor heartSensor = (BleHeartRateSensor) sensor;
-			float[] values = heartSensor.getData();
-			renderer.setInterval(values);
+			HRData value = heartSensor.getHRData();
+			renderer.setInterval(value);
 			view.requestRender();
 
 			viewText.setText(text);
@@ -122,27 +121,29 @@ public class DemoHeartRateSensorActivity extends DemoSensorActivity {
 
 		private int sides = 32;
 
-		private float[] interval = { 0, 0, 0 };
-		private float previousInterval = 0;
+//		private float intervalHR = 0;
+		private float intervalHRI = 0;
+//		private float intervalEnergy = 0;
+		private float previousHRI = 0;
 
-		void setInterval(float[] interval) {
-			if (this.interval[1] >= 0 && interval[1] > 0) {
-				this.previousInterval = this.interval[1];
+		void setInterval(HRData interval) {
+			if (this.intervalHRI >= 0 && interval.getHRI() > 0) {
+				this.previousHRI = this.intervalHRI;
 			}
-			this.interval[0] = interval[0]; // heart rate
-			this.interval[1] = interval[1]; // beat to beat interval
-			this.interval[2] = 0;			// empty
+//			this.intervalHR = interval.getHR(); // heart rate
+			this.intervalHRI = interval.getHRI(); // beat to beat interval
+//			this.intervalEnergy = 0;			// empty
 		}
 		
 		PolygonRenderer(Context context) {
-			prepareBuffers(sides, interval[1]);
+			prepareBuffers(sides, intervalHRI);
 		}
 
 		private void prepareBuffers(int sides, float radius) {
-			Log.d(TAG,"radius: "+radius +" previous: "+previousInterval);
+			Log.d(TAG,"radius: "+radius +" previous: "+ previousHRI);
 			// Is it a valid value?
 			if (radius < 0) {
-				radius = previousInterval;
+				radius = previousHRI;
 			}
 			
 			// Double check if the previous value was valid
@@ -165,7 +166,7 @@ public class DemoHeartRateSensorActivity extends DemoSensorActivity {
 		protected void draw(GL10 gl) {
 			long curtime = SystemClock.uptimeMillis();
 
-			this.prepareBuffers(sides, interval[1]);
+			this.prepareBuffers(sides, intervalHRI);
 			gl.glColor4f(96/255.0f, 246/255.0f, 255/255.0f, 1.0f);
 			gl.glVertexPointer(3, GL10.GL_FLOAT, 0, mFVertexBuffer);
 			gl.glDrawElements(GL10.GL_TRIANGLES, this.numOfIndecies,
