@@ -43,7 +43,7 @@ public abstract class BleSensor<T> {
         return false;
     }
 
-    public T getData() {
+    protected T getData() {
         return data;
     }
 
