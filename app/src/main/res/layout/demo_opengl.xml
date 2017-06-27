@@ -14,4 +14,22 @@
             android:layout_height="wrap_content"
             android:layout_margin="10dp"
             android:textAppearance="?android:textAppearanceMedium"/>
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/rate"
+        android:id="@+id/rate_button"
+        android:layout_gravity = "center|top"/>
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/icons8_thumbs_up_48"
+        android:id="@+id/good_button"
+        android:layout_gravity = "center_vertical"/>
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/icons8_thumbs_down_48"
+        android:id="@+id/bad_button"
+        android:layout_gravity = "center_vertical|right"/>
 </FrameLayout>

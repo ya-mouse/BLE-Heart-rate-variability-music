@@ -1,15 +1,29 @@
 package com.sample.hrv.demo;
 
+import android.content.Intent;
+import android.media.AudioManager;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLU;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -17,6 +31,7 @@ import javax.microedition.khronos.opengles.GL10;
 
 import android.content.Context;
 import android.os.SystemClock;
+import android.widget.Toast;
 
 
 import com.sample.hrv.R;
@@ -24,25 +39,82 @@ import com.sample.hrv.sensor.BleHeartRateSensor;
 import com.sample.hrv.sensor.BleSensor;
 import com.sample.hrv.sensor.HRData;
 
+
+//TODO: save readings - format?
+//TODO: save readings - send them? by mail? create DB? sqlite? firebase?
+//TODO: analyze readings - firebase or local? python?
+
+
+
 /**
  * Created by olli on 3/28/14.
  */
 public class DemoHeartRateSensorActivity extends DemoSensorActivity {
 	private final static String TAG = DemoHeartRateSensorActivity.class
 			.getSimpleName();
-
+    private AudioManager mAudioManager;
 	private TextView viewText;
 	private PolygonRenderer renderer;
+    private Button rateButton;
+    private ImageButton goodButton;
+    private ImageButton badButton;
+
+    private List<String> ratingsList;
 
 	private GLSurfaceView view;
-	
-	@Override
+
+    private boolean isRating;
+
+    @Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.demo_opengl);
 		view = (GLSurfaceView) findViewById(R.id.gl);
 
-		getActionBar().setTitle(R.string.title_demo_heartrate);
+        isRating = false;
+
+        rateButton = (Button) findViewById(R.id.rate_button);
+        goodButton = (ImageButton) findViewById(R.id.good_button);
+        badButton = (ImageButton) findViewById(R.id.bad_button);
+        rateButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showToast("Rating Started!");
+                ratingsList = new ArrayList<>();
+                playerCMD(KeyEvent.KEYCODE_MEDIA_NEXT);
+                playerCMD(KeyEvent.KEYCODE_MEDIA_PLAY);
+                rateButton.setEnabled(false);
+                goodButton.setEnabled(true);
+                badButton.setEnabled(true);
+                isRating = true;
+            }
+        });
+
+        goodButton.setEnabled(false);
+        badButton.setEnabled(false);
+
+        goodButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showToast("Rated Song as GOOD!");
+                finishRating();
+            }
+        });
+        badButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showToast("Rated Song as BAD!");
+                finishRating();
+            }
+        });
+
+        getActionBar().setTitle(R.string.title_demo_heartrate);
+        mAudioManager =
+                (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if(mAudioManager.isMusicActive()) {
+            playerCMD(KeyEvent.KEYCODE_MEDIA_PAUSE);
+            showToast("Paused Media Player!");
+        }
 
 		viewText = (TextView) findViewById(R.id.text);
 
@@ -53,8 +125,85 @@ public class DemoHeartRateSensorActivity extends DemoSensorActivity {
 		view.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
 	}
 
-	@Override
-	public void onDataRecieved(BleSensor<?> sensor, String text) {
+    private void finishRating() {
+        playerCMD(KeyEvent.KEYCODE_MEDIA_PAUSE);
+        rateButton.setEnabled(true);
+        goodButton.setEnabled(false);
+        badButton.setEnabled(false);
+        isRating = false;
+        writeRatingsToFile(ratingsList);
+    }
+
+    private void writeRatingsToFile(List<String> list) {
+        if (isExternalStorageWritable()){
+            try {
+                File dir = getRatingsStorageDir("Ratings");
+                File file = new File(dir, "myData.txt");
+                try {
+                    FileOutputStream f = new FileOutputStream(file);
+                    PrintWriter pw = new PrintWriter(f);
+                    for (String r:
+                         list) {
+                        pw.println(r);
+                    }
+                    pw.flush();
+                    pw.close();
+                    f.close();
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    Log.i(TAG, "******* File not found. Did you" +
+                            " add a WRITE_EXTERNAL_STORAGE permission to the   manifest?");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }else{
+            showToast("External Storage NOT Writable!");
+        }
+    }
+
+    /* Checks if external storage is available for read and write */
+    public boolean isExternalStorageWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
+    }
+
+    public File getRatingsStorageDir(String dirName) {
+        // Get the directory for the user's public pictures directory.
+        File file = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOCUMENTS), dirName);
+        if (!file.mkdirs()) {
+            Log.e(getApplicationInfo().toString(), "Directory not created");
+        }
+        return file;
+    }
+
+    private void showToast(CharSequence text) {
+        Context context = getApplicationContext();
+        int duration = Toast.LENGTH_SHORT;
+        Toast.makeText(context, text, duration).show();
+    }
+
+    private void playerCMD(int keyCode) {
+        Context context = getApplicationContext();
+        KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+        Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+        intent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+        context.sendOrderedBroadcast(intent,null);
+
+        keyEvent = new KeyEvent(KeyEvent.ACTION_UP, keyCode);
+        intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+        intent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+        context.sendOrderedBroadcast(intent,null);
+    }
+
+    @Override
+	public void onDataReceived(BleSensor<?> sensor, String text) {
 		if (sensor instanceof BleHeartRateSensor) {
 			final BleHeartRateSensor heartSensor = (BleHeartRateSensor) sensor;
 			HRData value = heartSensor.getHRData();
@@ -62,6 +211,9 @@ public class DemoHeartRateSensorActivity extends DemoSensorActivity {
 			view.requestRender();
 
 			viewText.setText(text);
+            if(isRating) {
+                ratingsList.add("heart rate=" + value.getHR() + ", interval=" + value.getHRI());
+            }
 		}
 	}
 	
